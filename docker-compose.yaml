@@ -1,0 +1,49 @@
+version: '3.8'
+services:
+  db:
+    image: postgres
+    container_name: food-manager-db
+    restart: always
+    # set shared memory limit when using docker-compose
+    shm_size: 256mb
+    environment:
+      POSTGRES_USER: compose-postgres
+      POSTGRES_PASSWORD: compose-postgres
+    networks:
+      food-manager-network:
+        ipv4_address: 172.21.0.2
+  food-manager:
+    container_name: food-manager
+    depends_on:
+      - db
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/compose-postgres
+      - SPRING_DATASOURCE_USERNAME=compose-postgres
+      - SPRING_DATASOURCE_PASSWORD=compose-postgres
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - FOOD_MANAGER_WEBSOCKET_URL=ws://172.21.0.3:8080
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 18080:8080
+    networks:
+      food-manager-network:
+        ipv4_address: 172.21.0.3
+  food-simulator:
+    container_name: food-simulator
+    depends_on:
+      - food-manager
+    image: food-simulator:latest
+    environment:
+      - FOOD_MANAGER_HOST_URL=http://food-manager:8080/api
+    networks:
+      food-manager-network:
+          ipv4_address: 172.21.0.4
+networks:
+  food-manager-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+          gateway: 172.21.0.1
